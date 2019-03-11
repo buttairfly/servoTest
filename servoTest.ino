@@ -29,35 +29,59 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 // want these to be as small/large as possible without hitting the hard stop
 // for max range. You'll have to tweak them as necessary to match the servos you
 // have!
-#define SERVOMIN  0 // this is the 'minimum' pulse length count (out of 4096)
-#define SERVOMAX  4096 // this is the 'maximum' pulse length count (out of 4096)
+const uint16_t SERVO_MIN = 50;  // this is the 'minimum' pulse length count (out of 4096)
+const uint16_t SERVO_MAX = 650; // this is the 'maximum' pulse length count (out of 4096)
+const uint16_t ANGLE_MIN = 0;   // this is the 'minimum' servo angle
+const uint16_t ANGLE_MAX = 180; // this is the 'maximum' servo angle
+
+
+#define REFRESH_INTERVAL 200000 // minumim time to refresh servos in microseconds
+#define WAIT_INTERVAL     100 // time to wait servos in milliseconds
+
+const uint16_t ANGLE_INC = (SERVO_MAX - SERVO_MIN) / ANGLE_MAX;
+
+const float PWM_FREQUENCY = 60.0;
 
 // our servo # counter
 uint8_t servonum = 0;
-const uint8_t MAX_SERVO = 1;
+boolean invert = false;
+const uint8_t SERVO_NUM_MAX = 1;
 
 void setup() {
-  Serial.begin(9600);
-  Serial.println("8 channel Servo test!");
+  Serial.begin(115200);
+  Serial.print(SERVO_NUM_MAX);
+  Serial.println(" channel Servo test!");
 
   pwm.begin();
-
-  pwm.setPWMFreq(60);  // Analog servos run at ~60 Hz updates
+  pwm.setPWMFreq(PWM_FREQUENCY);  // Analog servos run at ~60 Hz updates
 
   delay(10);
 }
 
 void loop() {
-  // Drive each servo one at a time
-  Serial.println(servonum);
-  for (uint16_t pulselen = SERVOMIN; pulselen < SERVOMAX; pulselen++) {
-    pwm.setPWM(servonum, 0, pulselen);
+  for (uint16_t angle = ANGLE_MIN; angle <= ANGLE_MAX; angle++) {
+    uint16_t angleReal = angle;
+    if (invert) {
+      angleReal = ANGLE_MAX - angle;
+    }
+    Serial.println(angleReal);
+    setServo(servonum, angleReal);
+    delayMicroseconds(REFRESH_INTERVAL);
   }
-
-  for (uint16_t pulselen = SERVOMAX; pulselen > SERVOMIN; pulselen--) {
-    pwm.setPWM(servonum, 0, pulselen);
-  }
+  Serial.print(invert);Serial.println("WAIT");
+  delay(WAIT_INTERVAL);
+  invert = !invert;
 
   servonum ++;
-  if (servonum > MAX_SERVO) servonum = 0;
+  if (servonum > SERVO_NUM_MAX) servonum = 0;
+}
+
+void setServo(uint8_t servonum, uint16_t pulselen)
+{
+  {
+    if(pulselen < ANGLE_MIN) pulselen = ANGLE_MIN;
+    if(pulselen > ANGLE_MAX) pulselen = ANGLE_MAX;
+    pulselen = map(pulselen, ANGLE_MIN, ANGLE_MAX, SERVO_MIN, SERVO_MAX);
+  }
+  pwm.setPWM(servonum, 0, pulselen);
 }
