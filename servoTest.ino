@@ -15,51 +15,34 @@
   BSD license, all text above must be included in any redistribution
  ****************************************************/
 
-
-// open busybox tty with 
+// open busybox tty with
 // busybox microcom -s 115200 /dev/ttyUSB0
 
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
+#include "version.hpp"
 
-// called this way, it uses the default address 0x40
+const uint16_t POTI_MIN      = 0;   // this is the 'minimum' poti value
+const uint16_t POTI_MAX      = 680; // this is the 'maximum' poti value (actually 10bit but on the current one only about 700)
+const uint16_t SERVO_MIN     = 100; // this is the 'minimum' pulse length count (out of 4096)
+const uint16_t SERVO_MAX     = 560; // this is the 'maximum' pulse length count (out of 4096)
+const uint16_t ANGLE_MIN     = 0;   // this is the 'minimum' servo angle
+const uint16_t ANGLE_MAX     = 180; // this is the 'maximum' servo angle
+const uint32_t WAIT_INTERVAL = 1000; // time to wait servos in milliseconds
+const float    PWM_FREQUENCY = 60;
+const uint8_t  SERVO_NUM_MAX = 1;
+
+uint8_t  servonum = 0;
+uint16_t poti     = 0;
+uint16_t mapPoti  = 0;
+
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
-// you can also call it with a different address you want
-//Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x41);
-// you can also call it with a different address and I2C interface
-//Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(&Wire, 0x40);
-
-// Depending on your servo make, the pulse width min and max may vary, you
-// want these to be as small/large as possible without hitting the hard stop
-// for max range. You'll have to tweak them as necessary to match the servos you
-// have!
-const uint16_t SERVO_MIN = 100;  // this is the 'minimum' pulse length count (out of 4096)
-const uint16_t SERVO_MAX = 560; // this is the 'maximum' pulse length count (out of 4096)
-const uint16_t ANGLE_MIN = 0;   // this is the 'minimum' servo angle
-const uint16_t ANGLE_MAX = 180; // this is the 'maximum' servo angle
-
-
-const long REFRESH_INTERVAL =  20000; // minumim time to refresh servos in microseconds
-const uint32_t WAIT_INTERVAL    =  1000; // time to wait servos in milliseconds
-
-const uint16_t ANGLE_INC = (SERVO_MAX - SERVO_MIN) / ANGLE_MAX;
-
-const float PWM_FREQUENCY = 60;
-
-// our servo # counter
-uint8_t servonum = 0;
-const uint8_t SERVO_NUM_MAX = 1;
-
-uint16_t poti = 0;
-uint16_t mapPoti = 0;
 
 void setup() {
   Serial.begin(115200);
+  printVersion();
   Serial.print(SERVO_NUM_MAX);
   Serial.println(" channel Servo test!");
-  pinMode(12, OUTPUT);    // sets the digital pin 12 as output
-  pinMode(13, INPUT);    // sets the digital pin 13 as input
-  digitalWrite(12, HIGH);
 
   pwm.begin();
   pwm.setPWMFreq(PWM_FREQUENCY);  // Analog servos run at ~60 Hz updates
@@ -68,9 +51,9 @@ void setup() {
 }
 
 void loop() {
-  if (!digitalRead(13)) {
-    poti = analogRead(A0);
-    mapPoti = map(poti, 0, 680, SERVO_MIN, SERVO_MAX);
+  poti = analogRead(A0);
+  if (poti <= POTI_MAX) {
+    mapPoti = map(poti, POTI_MIN, POTI_MAX, SERVO_MIN, SERVO_MAX);
     Serial.print("poti: ");Serial.print(poti);Serial.print(";");Serial.println(mapPoti);
     pwm.setPWM(servonum, 0, mapPoti);
   } else {
@@ -90,4 +73,13 @@ void setServo(uint8_t servonum, uint16_t pulselen)
   }
   Serial.print("setServo: ");Serial.println(pulselen);
   pwm.setPWM(servonum, 0, pulselen);
+}
+
+void printVersion() {
+  Serial.print(BUILD_PROGRAM);
+  Serial.print(": ");
+  Serial.print(BUILD_DATE);
+  Serial.print(" - ");
+  Serial.println(BUILD_VERSION);
+  Serial.flush();
 }
