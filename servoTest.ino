@@ -15,6 +15,10 @@
   BSD license, all text above must be included in any redistribution
  ****************************************************/
 
+
+// open busybox tty with 
+// busybox microcom -s 115200 /dev/ttyUSB0
+
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 
@@ -29,28 +33,33 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 // want these to be as small/large as possible without hitting the hard stop
 // for max range. You'll have to tweak them as necessary to match the servos you
 // have!
-const uint16_t SERVO_MIN = 50;  // this is the 'minimum' pulse length count (out of 4096)
-const uint16_t SERVO_MAX = 650; // this is the 'maximum' pulse length count (out of 4096)
+const uint16_t SERVO_MIN = 100;  // this is the 'minimum' pulse length count (out of 4096)
+const uint16_t SERVO_MAX = 560; // this is the 'maximum' pulse length count (out of 4096)
 const uint16_t ANGLE_MIN = 0;   // this is the 'minimum' servo angle
 const uint16_t ANGLE_MAX = 180; // this is the 'maximum' servo angle
 
 
-#define REFRESH_INTERVAL 200000 // minumim time to refresh servos in microseconds
-#define WAIT_INTERVAL     100 // time to wait servos in milliseconds
+const long REFRESH_INTERVAL =  20000; // minumim time to refresh servos in microseconds
+const uint32_t WAIT_INTERVAL    =  1000; // time to wait servos in milliseconds
 
 const uint16_t ANGLE_INC = (SERVO_MAX - SERVO_MIN) / ANGLE_MAX;
 
-const float PWM_FREQUENCY = 60.0;
+const float PWM_FREQUENCY = 60;
 
 // our servo # counter
 uint8_t servonum = 0;
-boolean invert = false;
 const uint8_t SERVO_NUM_MAX = 1;
+
+uint16_t poti = 0;
+uint16_t mapPoti = 0;
 
 void setup() {
   Serial.begin(115200);
   Serial.print(SERVO_NUM_MAX);
   Serial.println(" channel Servo test!");
+  pinMode(12, OUTPUT);    // sets the digital pin 12 as output
+  pinMode(13, INPUT);    // sets the digital pin 13 as input
+  digitalWrite(12, HIGH);
 
   pwm.begin();
   pwm.setPWMFreq(PWM_FREQUENCY);  // Analog servos run at ~60 Hz updates
@@ -59,21 +68,17 @@ void setup() {
 }
 
 void loop() {
-  for (uint16_t angle = ANGLE_MIN; angle <= ANGLE_MAX; angle++) {
-    uint16_t angleReal = angle;
-    if (invert) {
-      angleReal = ANGLE_MAX - angle;
-    }
-    Serial.println(angleReal);
-    setServo(servonum, angleReal);
-    delayMicroseconds(REFRESH_INTERVAL);
+  if (!digitalRead(13)) {
+    poti = analogRead(A0);
+    mapPoti = map(poti, 0, 680, SERVO_MIN, SERVO_MAX);
+    Serial.print("poti: ");Serial.print(poti);Serial.print(";");Serial.println(mapPoti);
+    pwm.setPWM(servonum, 0, mapPoti);
+  } else {
+    setServo(servonum, ANGLE_MIN);
+    delay(WAIT_INTERVAL);
+    setServo(servonum, ANGLE_MAX);
+    delay(WAIT_INTERVAL);
   }
-  Serial.print(invert);Serial.println("WAIT");
-  delay(WAIT_INTERVAL);
-  invert = !invert;
-
-  servonum ++;
-  if (servonum > SERVO_NUM_MAX) servonum = 0;
 }
 
 void setServo(uint8_t servonum, uint16_t pulselen)
@@ -83,5 +88,6 @@ void setServo(uint8_t servonum, uint16_t pulselen)
     if(pulselen > ANGLE_MAX) pulselen = ANGLE_MAX;
     pulselen = map(pulselen, ANGLE_MIN, ANGLE_MAX, SERVO_MIN, SERVO_MAX);
   }
+  Serial.print("setServo: ");Serial.println(pulselen);
   pwm.setPWM(servonum, 0, pulselen);
 }
